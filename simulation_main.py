@@ -12,12 +12,15 @@ from matplotlib import rc
 
 if __name__ == '__main__':
     dt = 0.005 # time step
-    tf = 60.0 # final time
+    tf = 10.0 # final time
     t = np.linspace(0.0,tf,int(tf/dt),dtype=np.float32) # times
     alpha = 5.0*np.ones(2,dtype=np.float32)
     beta = 2.5*np.ones(2,dtype=np.float32)
     gamma = 1.25*np.ones(5,dtype=np.float32)
-    dyn = dynamics.Dynamics(alpha=alpha,beta=beta,gamma=gamma)
+    lambdaCL = 1.0
+    YYminDiff = 0.1
+    kCL = 0.1
+    dyn = dynamics.Dynamics(alpha=alpha,beta=beta,gamma=gamma,lambdaCL=lambdaCL,YYminDiff=YYminDiff,kCL=kCL)
     phiHist = np.zeros((2,len(t)),dtype=np.float32)
     phidHist = np.zeros((2,len(t)),dtype=np.float32)
     phiDHist = np.zeros((2,len(t)),dtype=np.float32)
@@ -28,11 +31,18 @@ if __name__ == '__main__':
     eNormHist = np.zeros_like(t)
     rHist = np.zeros((2,len(t)),dtype=np.float32)
     rNormHist = np.zeros_like(t)
+    thetaHist = np.zeros((5,len(t)),dtype=np.float32)
+    thetaHHist = np.zeros((5,len(t)),dtype=np.float32)
+    thetaCLHist = np.zeros((5,len(t)),dtype=np.float32)
     thetaTildeHist = np.zeros((5,len(t)),dtype=np.float32)
     thetaTildeNormHist = np.zeros_like(t)
+    lambdaCLMinHist = np.zeros_like(t)
     tauHist = np.zeros((2,len(t)),dtype=np.float32)
     tauffHist = np.zeros((2,len(t)),dtype=np.float32)
     taufbHist = np.zeros((2,len(t)),dtype=np.float32)
+    TCL = 0
+    TCLindex = 0
+    TCLfound = False
 
     #start save file
     savePath = "C:/Users/bell_/OneDrive/Documents/_teaching/AdaptiveControlSpring2022/projects/project1"
@@ -50,10 +60,17 @@ if __name__ == '__main__':
     # loop through
     for jj in range(0,len(t)):
         # get the state and input data
-        phij,phiDj,phiDDj,thetaHj = dyn.getState(t[jj])
+        phij,phiDj,phiDDj,thetaHj,thetaj = dyn.getState(t[jj])
         phidj,phiDdj,phiDDdj = dyn.getDesiredState(t[jj])
         ej,_,rj,thetaTildej = dyn.getErrorState(t[jj])
-        tauj,_,tauffj,taufbj = dyn.getTauThetaHD(t[jj])
+        tauj,_,tauffj,taufbj,thetaCLj = dyn.getTauThetaHD(t[jj])
+        lamdaCLMinj,TCLj,_,_ = dyn.getCLstate()
+
+        if not TCLfound:
+            if TCLj > 0:
+                TCL = TCLj
+                TCLindex = jj
+                TCLfound = True
         
         # save the data to the buffers
         phiHist[:,jj] = phij
@@ -66,8 +83,12 @@ if __name__ == '__main__':
         eNormHist[jj] = np.linalg.norm(ej)
         rHist[:,jj] = rj
         rNormHist[jj] = np.linalg.norm(rj)
+        thetaHist[:,jj] = thetaj
+        thetaHHist[:,jj] = thetaHj
+        thetaCLHist[:,jj] = thetaCLj
         thetaTildeHist[:,jj] = thetaTildej
         thetaTildeNormHist[jj] = np.linalg.norm(thetaTildej)
+        lambdaCLMinHist[jj] = lamdaCLMinj
         tauHist[:,jj] = tauj
         tauffHist[:,jj] = tauffj
         taufbHist[:,jj] = taufbj
@@ -179,6 +200,31 @@ if __name__ == '__main__':
     tauplot.savefig(path+"/input.pdf")
 
     #plot the parameter estiamtes
+    thetaHplot,thetaHax = plot.subplots()
+    thetaHax.plot(t,thetaHist[0,:],color='red',linewidth=2,linestyle='--')
+    thetaHax.plot(t,thetaHist[1,:],color='green',linewidth=2,linestyle='--')
+    thetaHax.plot(t,thetaHist[2,:],color='blue',linewidth=2,linestyle='--')
+    thetaHax.plot(t,thetaHist[3,:],color='orange',linewidth=2,linestyle='--')
+    thetaHax.plot(t,thetaHist[4,:],color='magenta',linewidth=2,linestyle='--')
+    thetaHax.plot(t,thetaHHist[0,:],color='red',linewidth=2,linestyle='-')
+    thetaHax.plot(t,thetaHHist[1,:],color='green',linewidth=2,linestyle='-')
+    thetaHax.plot(t,thetaHHist[2,:],color='blue',linewidth=2,linestyle='-')
+    thetaHax.plot(t,thetaHHist[3,:],color='orange',linewidth=2,linestyle='-')
+    thetaHax.plot(t,thetaHHist[4,:],color='magenta',linewidth=2,linestyle='-')
+    thetaHax.plot(t,thetaCLHist[0,:],color='red',linewidth=2,linestyle='-.')
+    thetaHax.plot(t,thetaCLHist[1,:],color='green',linewidth=2,linestyle='-.')
+    thetaHax.plot(t,thetaCLHist[2,:],color='blue',linewidth=2,linestyle='-.')
+    thetaHax.plot(t,thetaCLHist[3,:],color='orange',linewidth=2,linestyle='-.')
+    thetaHax.plot(t,thetaCLHist[4,:],color='magenta',linewidth=2,linestyle='-.')
+    thetaHax.set_xlabel("$t$ $(sec)$")
+    thetaHax.set_ylabel("$\\theta_i$")
+    thetaHax.set_title("Parameter Estimates")
+    thetaHax.legend(["$\\theta_1$","$\\theta_2$","$\\theta_3$","$\\theta_4$","$\\theta_5$","$\hat{\\theta}_1$","$\hat{\\theta}_2$","$\hat{\\theta}_3$","$\hat{\\theta}_4$","$\hat{\\theta}_5$","$\hat{\\theta}_{CL1}$","$\hat{\\theta}_{CL2}$","$\hat{\\theta}_{CL3}$","$\hat{\\theta}_{CL4}$","$\hat{\\theta}_{CL5}$"],loc='lower right',bbox_to_anchor=(1.05, -0.15),ncol=3)
+    thetaHax.grid()
+    thetaHplot.savefig(path+"/thetaHat.pdf")
+
+
+    #plot the parameter estiamtes
     thetaplot,thetaax = plot.subplots()
     thetaax.plot(t,thetaTildeHist[0,:],color='red',linewidth=2,linestyle='-')
     thetaax.plot(t,thetaTildeHist[1,:],color='green',linewidth=2,linestyle='-')
@@ -200,3 +246,15 @@ if __name__ == '__main__':
     thetaNax.set_title("Parameter Error Norm")
     thetaNax.grid()
     thetaNplot.savefig(path+"/thetaTildeNorm.pdf")
+
+    #plot the minimum eigenvalue
+    eigplot,eigax = plot.subplots()
+    eigax.plot(t,lambdaCLMinHist,color='orange',linewidth=2,linestyle='-')
+    eigax.plot([TCL,TCL],[0.0,lambdaCLMinHist[TCLindex]],color='black',linewidth=1,linestyle='-')
+    eigax.set_xlabel("$t$ $(sec)$")
+    eigax.set_ylabel("$\lambda_{min}$")
+    eigax.set_title("Minimum Eigenvalue $T_{CL}$="+str(round(TCL,2)))
+    eigax.grid()
+    eigplot.savefig(path+"/minEig.pdf")
+    TCL = TCLj
+                

@@ -1,11 +1,12 @@
 import numpy as np
 from math import sin
 from math import cos
+from concurrent_learning import ConcurrentLearning
 
 # class for the two link dynamics
 class Dynamics():
     # constructor to initialize a Dynamics object
-    def __init__(self,alpha=0.25*np.ones(2,dtype=np.float32),beta=0.1*np.ones(2,dtype=np.float32),gamma=0.01*np.ones(5,dtype=np.float32)):
+    def __init__(self,alpha=0.25*np.ones(2,dtype=np.float32),beta=0.1*np.ones(2,dtype=np.float32),gamma=0.01*np.ones(5,dtype=np.float32),lambdaCL=0.1,YYminDiff=0.1,kCL=0.9):
         """
         Initialize the dynamics \n
         Inputs:
@@ -13,6 +14,7 @@ class Dynamics():
         \t alpha: error gain \n
         \t beta:  filtered error gain \n
         \t gamma: parameter update gain \n
+        \t kCL: CL parameter update gain \n
         
         Returns:
         -------
@@ -21,6 +23,7 @@ class Dynamics():
         self.alpha = np.diag(alpha)
         self.beta = np.diag(beta)
         self.Gamma = np.diag(gamma)
+        self.kCL = kCL
 
         # rigid body parameters
         self.m = np.array([2.0,2.0],dtype=np.float32) # mass in kg
@@ -32,6 +35,10 @@ class Dynamics():
         # unknown parameters
         self.theta = self.getTheta(self.m,self.l) # initialize theta
         self.thetaH = self.getTheta(self.mBnds[0]*np.ones(2,dtype=np.float32),self.lBnds[0]*np.ones(2,dtype=np.float32)) # initialize theta estimate to the lowerbounds
+        
+        # concurrent learning
+        self.concurrentLearning = ConcurrentLearning(lambdaCL,YYminDiff)
+        self.tau = np.zeros(2,np.float32)
 
         # desired trajectory parameters
         self.phidMag = np.array([np.pi/8,np.pi/4],dtype=np.float32) # amplitude of oscillations in rad
@@ -43,6 +50,7 @@ class Dynamics():
         self.phi,_,_ = self.getDesiredState(0.0) # set the initial angle to the initial desired angle
         self.phiD = np.zeros(2,dtype=np.float32) # initial angular velocity
         self.phiDD = np.zeros(2,dtype=np.float32) # initial angular acceleration
+
 
     def getTheta(self,m,l):
         """
@@ -168,7 +176,7 @@ class Dynamics():
         Determines the inertia matrix regressor \n
         Inputs:
         -------
-        \t vphi: phiDDd+alpha*eD \n
+        \t vphi: phiDDd+alpha*eD or phiDD \n
         \t phi:  angles \n
         
         Returns:
@@ -256,9 +264,10 @@ class Dynamics():
         \t phi:    angles \n
         \t phiD:   angular velocity \n
         \t phiDD:  angular acceleration \n
-        \t thetaH: parameter estimate
+        \t thetaH: parameter estimate \n
+        \t thetaH: parameter
         """
-        return self.phi,self.phiD,self.phiDD,self.thetaH
+        return self.phi,self.phiD,self.phiDD,self.thetaH,self.theta
 
     #returns the error state
     def getErrorState(self,t):
@@ -287,6 +296,22 @@ class Dynamics():
         thetaTilde = self.theta-self.thetaH
         return e,eD,r,thetaTilde
 
+    def getCLstate(self):
+        """
+        Returns select parameters CL \n
+        Inputs:
+        -------
+        
+        Returns:
+        -------
+        \t YYsumMinEig: current minimum eigenvalue of sum of the Y^T*Y terms \n
+        \t TCL: time of the minimum eigenvalue found \n
+        \t YYsum: Y^T*Y sum \n
+        \t YtauSum: Y^T*tau sum \n
+
+        """
+        return self.concurrentLearning.getState()
+
     # returns the input and update law
     def getTauThetaHD(self,t):
         """
@@ -300,7 +325,8 @@ class Dynamics():
         \t tau:     control input \n
         \t thetaHD: parameter estimate adaptive update law \n
         \t tauff:   input from the feedforward portion of control \n
-        \t taufb:   input from the feedback portion of control
+        \t taufb:   input from the feedback portion of control \n
+        \t thetaCL: approximate of theta from CL \n
         """
         # get the desired state
         _,_,phiDDd = self.getDesiredState(t)
@@ -320,9 +346,14 @@ class Dynamics():
         tauff = Y@self.thetaH
         taufb = e+self.beta@r
         tau = tauff + taufb
-
-        thetaHD = self.Gamma@Y.T@r
-        return tau,thetaHD,tauff,taufb
+        
+        #update the CL stack and the update law
+        YYsumMinEig,_,YYsum,YtauSum = self.concurrentLearning.getState()
+        thetaCL = np.zeros_like(self.theta,np.float32)
+        if YYsumMinEig > 0.001:
+            thetaCL = np.linalg.inv(YYsum)@YtauSum
+        thetaHD = self.Gamma@Y.T@r + self.kCL*self.Gamma@(YtauSum - YYsum@self.thetaH)
+        return tau,thetaHD,tauff,taufb,thetaCL
 
     # take a step of the dynamics
     def step(self,dt,t):
@@ -342,7 +373,7 @@ class Dynamics():
         G = self.getG(self.m,self.l,self.phi)
 
         # get the input and update law
-        tau,thetaHD,_,_ = self.getTauThetaHD(t)
+        tau,thetaHD,_,_,_ = self.getTauThetaHD(t)
 
         # calculate the dynamics using the input
         self.phiDD = np.linalg.inv(M)@(-C-G+tau)
@@ -352,4 +383,12 @@ class Dynamics():
         self.phi += dt*self.phiD
         self.phiD += dt*self.phiDD
         self.thetaH += dt*thetaHD
+
+        # update the concurrent learning
+        # get the inertia regressor for CL
+        YMCL = self.getYM(self.phiDD,self.phi)
+        YC = self.getYC(self.phi,self.phiD)
+        YG = self.getYG(self.phi)
+        YCL = YMCL+YC+YG
+        self.concurrentLearning.append(YCL,tau,t+dt)
         
