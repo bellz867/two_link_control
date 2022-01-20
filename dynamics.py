@@ -8,12 +8,14 @@ class Dynamics():
     def __init__(self,alpha=0.25*np.ones(2,dtype=np.float32),beta=0.1*np.ones(2,dtype=np.float32),gamma=0.01*np.ones(5,dtype=np.float32)):
         """
         Initialize the dynamics \n
-        inputs:\n
+        Inputs:
+        -------
         \t alpha: error gain \n
         \t beta:  filtered error gain \n
         \t gamma: parameter update gain \n
         
-        returns:
+        Returns:
+        -------
         """
         # gains
         self.alpha = np.diag(alpha)
@@ -44,11 +46,13 @@ class Dynamics():
 
     def getTheta(self,m,l):
         """
-        inputs:\n
+        Inputs:
+        -------
         \t m: link masses \n
         \t l: link lengths \n
         
-        returns:\n
+        Returns:
+        -------
         \t theta: parameters
         """
         theta = np.array([(m[0]+m[1])*l[0]**2+m[1]*l[1]**2,
@@ -61,10 +65,12 @@ class Dynamics():
     def getDesiredState(self,t):
         """
         Determines the desired state of the system \n
-        inputs:\n
+        Inputs:
+        -------
         \t t: time \n
         
-        returns:\n
+        Returns:
+        -------
         \t phid:   desired angles \n
         \t phiDd:  desired angular velocity \n
         \t phiDDd: desired angular acceleration
@@ -87,12 +93,14 @@ class Dynamics():
     def getM(self,m,l,phi):
         """
         Determines the inertia matrix \n
-        inputs:\n
+        Inputs:
+        -------
         \t m:   link masses \n
         \t l:   link lengths \n
         \t phi: angles \n
         
-        returns:\n
+        Returns:
+        -------
         \t M: inertia matrix
         """
         m1 = m[0]
@@ -108,13 +116,15 @@ class Dynamics():
     def getC(self,m,l,phi,phiD):
         """
         Determines the centripetal coriolis matrix \n
-        inputs:\n
+        Inputs:
+        -------
         \t m:    link masses \n
         \t l:    link lengths \n
         \t phi:  angles \n
         \t phiD: angular velocities \n
         
-        returns:\n
+        Returns:
+        -------
         \t C: cetripetal coriolis matrix
         """
         m1 = m[0]
@@ -132,12 +142,14 @@ class Dynamics():
     def getG(self,m,l,phi):
         """
         Determines the gravity matrix \n
-        inputs:\n
+        Inputs:
+        -------
         \t m:   link masses \n
         \t l:   link lengths \n
         \t phi: angles \n
         
-        returns:\n
+        Returns:
+        -------
         \t G: gravity matrix
         """
         m1 = m[0]
@@ -154,11 +166,13 @@ class Dynamics():
     def getYM(self,vphi,phi):
         """
         Determines the inertia matrix regressor \n
-        inputs:\n
+        Inputs:
+        -------
         \t vphi: phiDDd+alpha*eD \n
         \t phi:  angles \n
         
-        returns:\n
+        Returns:
+        -------
         \t YM: inertia matrix regressor
         """
         vphi1 = vphi[0]
@@ -172,11 +186,13 @@ class Dynamics():
     def getYC(self,phi,phiD):
         """
         Determines the centripetal coriolis matrix regressor \n
-        inputs:\n
+        Inputs:
+        -------
         \t phi:  angles \n
         \t phiD: angular velocity \n
         
-        returns:\n
+        Returns:
+        -------
         \t YC: centripetal coriolis matrix regressor
         """
         s2 = sin(phi[1])
@@ -190,10 +206,12 @@ class Dynamics():
     def getYG(self,phi):
         """
         Determines the gravity matrix regressor \n
-        inputs:\n
+        Inputs:
+        -------
         \t phi: angles \n
         
-        returns:\n
+        Returns:
+        -------
         \t YG: gravity matrix regressor
         """
         c1 = cos(phi[0])
@@ -206,12 +224,14 @@ class Dynamics():
     def getYMD(self,phi,phiD,r):
         """
         Determines the inertia derivative regressor \n
-        inputs:\n
+        Inputs:
+        -------
         \t phi:  angles \n
         \t phiD: angular velocoty \n
         \t r:    filtered tracking error \n
         
-        returns:\n
+        Returns:
+        -------
         \t YMD: inertia matrix derivative regressor
         """
 
@@ -227,10 +247,12 @@ class Dynamics():
     def getState(self,t):
         """
         Returns the state of the system and parameter estimates \n
-        inputs:\n
+        Inputs:
+        -------
         \t t: time \n
         
-        returns:\n
+        Returns:
+        -------
         \t phi:    angles \n
         \t phiD:   angular velocity \n
         \t phiDD:  angular acceleration \n
@@ -242,10 +264,12 @@ class Dynamics():
     def getErrorState(self,t):
         """
         Returns the errors \n
-        inputs:\n
+        Inputs:
+        -------
         \t t:  time \n
         
-        returns:\n
+        Returns:
+        -------
         \t e:          tracking error \n
         \t eD:         tracking error derivative \n
         \t r:          filtered tracking error \n
@@ -267,10 +291,12 @@ class Dynamics():
     def getTauThetaHD(self,t):
         """
         Calculates the input and adaptive update law \n
-        inputs:\n
+        Inputs:
+        -------
         \t t:  time \n
         
-        returns:\n
+        Returns:
+        -------
         \t tau:     control input \n
         \t thetaHD: parameter estimate adaptive update law \n
         \t tauff:   input from the feedforward portion of control \n
@@ -302,11 +328,13 @@ class Dynamics():
     def step(self,dt,t):
         """
         Steps the internal state using the dynamics \n
-        inputs:\n
+        Inputs:
+        -------
         \t dt: time step \n
         \t t:  time \n
         
-        returns:
+        Returns:
+        -------
         """
         # get the dynamics
         M = self.getM(self.m,self.l,self.phi)
