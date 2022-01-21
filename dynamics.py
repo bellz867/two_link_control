@@ -340,7 +340,7 @@ class Dynamics():
         YC = self.getYC(self.phi,self.phiD)
         YG = self.getYG(self.phi)
         YMD = self.getYMD(self.phi,self.phiD,r)
-        Y = YM+YC+YG+YMD
+        Y = YM+YC+YG+0.5*YMD
 
         #calculate the controller and update law
         tauff = Y@self.thetaH
