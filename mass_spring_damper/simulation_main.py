@@ -12,18 +12,18 @@ from matplotlib import rc
 
 if __name__ == '__main__':
     addNoise = True
-    tauNoise = 0.1
-    phiNoise = 0.05
-    phiDNoise = 0.075
-    phiDDNoise = 0.1
+    tauNoise = 0.2
+    phiNoise = 0.1
+    phiDNoise = 0.15
+    phiDDNoise = 0.2
     dt = 0.005 # time step
-    tf = 30.0 # final time
+    tf = 60.0 # final time
     t = np.linspace(0.0,tf,int(tf/dt),dtype=np.float32) # times
     alpha = 2.0
     beta = 1.0
     gamma = 0.5*np.ones(3,dtype=np.float32)
-    lambdaCL = 1.0
-    YYminDiff = 0.1
+    lambdaCL = 3.0
+    YYminDiff = 0.5
     kCL = 0.25
     dyn = dynamics.Dynamics(alpha=alpha,beta=beta,gamma=gamma,lambdaCL=lambdaCL,YYminDiff=YYminDiff,kCL=kCL,addNoise=addNoise,tauN=tauNoise,phiN=phiNoise,phiDN=phiDNoise,phiDDN=phiDDNoise)
     phiHist = np.zeros((2,len(t)),dtype=np.float32)

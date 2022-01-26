@@ -8,7 +8,7 @@ TrainData = namedtuple('TrainData',('Y','tau','t'))
 # class for the two link dynamics
 class ConcurrentLearning():
     # constructor to initialize a Dynamics object
-    def __init__(self,lambdaCL=0.1,YYminDiff=0.1,deltaT=0.25):
+    def __init__(self,lambdaCL=0.1,YYminDiff=0.1,deltaT=1.0):
         """
         Initialize the learning \n
         Inputs:

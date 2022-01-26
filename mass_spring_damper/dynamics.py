@@ -1,7 +1,9 @@
 import numpy as np
 from math import sin
 from math import cos
-from concurrent_learning import ConcurrentLearning
+from integral_concurrent_learning import ConcurrentLearning
+
+np.random.seed(0)
 
 # class for the two link dynamics
 class Dynamics():
@@ -275,7 +277,7 @@ class Dynamics():
 
         # calculate the dynamics using the input
         self.phiDD = (1.0/self.m)*(-self.c*phiD-self.k*phi+tau)
-        self.phiDDm = (1.0/self.m)*(-self.c*phiD-self.k*phi+taum)
+        self.phiDDm = (1.0/self.m)*(-self.c*phiD-self.k*phi+taum+self.tauN*np.random.randn())
 
         # update the internal state
         # X(ii+1) = X(ii) + dt*f(X)
@@ -294,4 +296,4 @@ class Dynamics():
         YCL = np.array([phiDD,phiD,phi],dtype=np.float32)
         YCLm = np.array([phiDDm,phiDm,phim],dtype=np.float32)
         self.concurrentLearning.append(YCL,tau,t+dt)
-        self.concurrentLearningm.append(YCLm,tau,t+dt)
+        self.concurrentLearningm.append(YCLm,taum,t+dt)
