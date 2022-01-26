@@ -5,7 +5,7 @@ from math import cos
 # class for the two link dynamics
 class Dynamics():
     # constructor to initialize a Dynamics object
-    def __init__(self,alpha=0.25*np.ones(2,dtype=np.float32),beta=0.1*np.ones(2,dtype=np.float32),gamma=0.01*np.ones(5,dtype=np.float32),lambdaCL=0.1,YYminDiff=0.1,kCL=0.9):
+    def __init__(self,alpha=0.25*np.ones(2,dtype=np.float32),beta=0.1*np.ones(2,dtype=np.float32),gamma=0.01*np.ones(5,dtype=np.float32)):
         """
         Initialize the dynamics \n
         Inputs:
@@ -348,7 +348,7 @@ class Dynamics():
         G = self.getG(self.m,self.l,self.phi)
 
         # get the input and update law
-        tau,thetaHD,_,_,_ = self.getTauThetaHD(t)
+        tau,thetaHD,_,_ = self.getTauThetaHD(t)
 
         # calculate the dynamics using the input
         self.phiDD = np.linalg.inv(M)@(-C-G+tau)

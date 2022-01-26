@@ -17,10 +17,7 @@ if __name__ == '__main__':
     alpha = 5.0*np.ones(2,dtype=np.float32)
     beta = 2.5*np.ones(2,dtype=np.float32)
     gamma = 1.25*np.ones(5,dtype=np.float32)
-    lambdaCL = 1.0
-    YYminDiff = 0.1
-    kCL = 0.1
-    dyn = dynamics.Dynamics(alpha=alpha,beta=beta,gamma=gamma,lambdaCL=lambdaCL,YYminDiff=YYminDiff,kCL=kCL)
+    dyn = dynamics.Dynamics(alpha=alpha,beta=beta,gamma=gamma)
     phiHist = np.zeros((2,len(t)),dtype=np.float32)
     phidHist = np.zeros((2,len(t)),dtype=np.float32)
     phiDHist = np.zeros((2,len(t)),dtype=np.float32)
@@ -33,10 +30,8 @@ if __name__ == '__main__':
     rNormHist = np.zeros_like(t)
     thetaHist = np.zeros((5,len(t)),dtype=np.float32)
     thetaHHist = np.zeros((5,len(t)),dtype=np.float32)
-    thetaCLHist = np.zeros((5,len(t)),dtype=np.float32)
     thetaTildeHist = np.zeros((5,len(t)),dtype=np.float32)
     thetaTildeNormHist = np.zeros_like(t)
-    lambdaCLMinHist = np.zeros_like(t)
     tauHist = np.zeros((2,len(t)),dtype=np.float32)
     tauffHist = np.zeros((2,len(t)),dtype=np.float32)
     taufbHist = np.zeros((2,len(t)),dtype=np.float32)
@@ -63,14 +58,7 @@ if __name__ == '__main__':
         phij,phiDj,phiDDj,thetaHj,thetaj = dyn.getState(t[jj])
         phidj,phiDdj,phiDDdj = dyn.getDesiredState(t[jj])
         ej,_,rj,thetaTildej = dyn.getErrorState(t[jj])
-        tauj,_,tauffj,taufbj,thetaCLj = dyn.getTauThetaHD(t[jj])
-        lamdaCLMinj,TCLj,_,_ = dyn.getCLstate()
-
-        if not TCLfound:
-            if TCLj > 0:
-                TCL = TCLj
-                TCLindex = jj
-                TCLfound = True
+        tauj,_,tauffj,taufbj = dyn.getTauThetaHD(t[jj])
         
         # save the data to the buffers
         phiHist[:,jj] = phij
@@ -85,10 +73,8 @@ if __name__ == '__main__':
         rNormHist[jj] = np.linalg.norm(rj)
         thetaHist[:,jj] = thetaj
         thetaHHist[:,jj] = thetaHj
-        thetaCLHist[:,jj] = thetaCLj
         thetaTildeHist[:,jj] = thetaTildej
         thetaTildeNormHist[jj] = np.linalg.norm(thetaTildej)
-        lambdaCLMinHist[jj] = lamdaCLMinj
         tauHist[:,jj] = tauj
         tauffHist[:,jj] = tauffj
         taufbHist[:,jj] = taufbj
@@ -211,15 +197,10 @@ if __name__ == '__main__':
     thetaHax.plot(t,thetaHHist[2,:],color='blue',linewidth=2,linestyle='-')
     thetaHax.plot(t,thetaHHist[3,:],color='orange',linewidth=2,linestyle='-')
     thetaHax.plot(t,thetaHHist[4,:],color='magenta',linewidth=2,linestyle='-')
-    thetaHax.plot(t,thetaCLHist[0,:],color='red',linewidth=2,linestyle='-.')
-    thetaHax.plot(t,thetaCLHist[1,:],color='green',linewidth=2,linestyle='-.')
-    thetaHax.plot(t,thetaCLHist[2,:],color='blue',linewidth=2,linestyle='-.')
-    thetaHax.plot(t,thetaCLHist[3,:],color='orange',linewidth=2,linestyle='-.')
-    thetaHax.plot(t,thetaCLHist[4,:],color='magenta',linewidth=2,linestyle='-.')
     thetaHax.set_xlabel("$t$ $(sec)$")
     thetaHax.set_ylabel("$\\theta_i$")
     thetaHax.set_title("Parameter Estimates")
-    thetaHax.legend(["$\\theta_1$","$\\theta_2$","$\\theta_3$","$\\theta_4$","$\\theta_5$","$\hat{\\theta}_1$","$\hat{\\theta}_2$","$\hat{\\theta}_3$","$\hat{\\theta}_4$","$\hat{\\theta}_5$","$\hat{\\theta}_{CL1}$","$\hat{\\theta}_{CL2}$","$\hat{\\theta}_{CL3}$","$\hat{\\theta}_{CL4}$","$\hat{\\theta}_{CL5}$"],loc='lower right',bbox_to_anchor=(1.05, -0.15),ncol=3)
+    thetaHax.legend(["$\\theta_1$","$\\theta_2$","$\\theta_3$","$\\theta_4$","$\\theta_5$","$\hat{\\theta}_1$","$\hat{\\theta}_2$","$\hat{\\theta}_3$","$\hat{\\theta}_4$","$\hat{\\theta}_5$"],loc='lower right',bbox_to_anchor=(1.05, -0.15),ncol=2)
     thetaHax.grid()
     thetaHplot.savefig(path+"/thetaHat.pdf")
 
@@ -246,15 +227,3 @@ if __name__ == '__main__':
     thetaNax.set_title("Parameter Error Norm")
     thetaNax.grid()
     thetaNplot.savefig(path+"/thetaTildeNorm.pdf")
-
-    #plot the minimum eigenvalue
-    eigplot,eigax = plot.subplots()
-    eigax.plot(t,lambdaCLMinHist,color='orange',linewidth=2,linestyle='-')
-    eigax.plot([TCL,TCL],[0.0,lambdaCLMinHist[TCLindex]],color='black',linewidth=1,linestyle='-')
-    eigax.set_xlabel("$t$ $(sec)$")
-    eigax.set_ylabel("$\lambda_{min}$")
-    eigax.set_title("Minimum Eigenvalue $T_{CL}$="+str(round(TCL,2)))
-    eigax.grid()
-    eigplot.savefig(path+"/minEig.pdf")
-    TCL = TCLj
-                
