@@ -272,12 +272,9 @@ class Dynamics():
         # get the input and update law
         tau,taum,thetaHD,thetaHDm,_,_,_,_,_,_ = self.getTauThetaHD(t)
 
-        #get the state
-        phi,_,phiD,_,_,_,_,_,_ = self.getState(t)
-
         # calculate the dynamics using the input
-        self.phiDD = (1.0/self.m)*(-self.c*phiD-self.k*phi+tau)
-        self.phiDDm = (1.0/self.m)*(-self.c*phiD-self.k*phi+taum+self.tauN*np.random.randn())
+        self.phiDD = (1.0/self.m)*(-self.c*self.phiD-self.k*self.phi+tau)
+        self.phiDDm = (1.0/self.m)*(-self.c*self.phiDm-self.k*self.phim+taum+self.tauN*np.random.randn())
 
         # update the internal state
         # X(ii+1) = X(ii) + dt*f(X)
