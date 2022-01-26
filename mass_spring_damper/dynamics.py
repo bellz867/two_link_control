@@ -6,7 +6,7 @@ from concurrent_learning import ConcurrentLearning
 # class for the two link dynamics
 class Dynamics():
     # constructor to initialize a Dynamics object
-    def __init__(self,alpha=0.25,beta=0.1,gamma=0.01*np.ones(3,dtype=np.float32),lambdaCL=0.1,YYminDiff=0.1,kCL=0.9):
+    def __init__(self,alpha=0.25,beta=0.1,gamma=0.01*np.ones(3,dtype=np.float32),lambdaCL=0.1,YYminDiff=0.1,kCL=0.9,addNoise=False,tauN=0.1,phiN=0.01,phiDN=0.05,phiDDN=0.1):
         """
         Initialize the dynamics \n
         Inputs:
@@ -15,6 +15,11 @@ class Dynamics():
         \t beta:  filtered error gain \n
         \t gamma: parameter update gain \n
         \t kCL: CL parameter update gain \n
+        \t addNoise: indicator to add noise to the signals \n
+        \t tauN: CL input noise is a disturbance \n
+        \t phiN: CL angle measurement noise \n
+        \t phiDN: CL velocity measurement noise \n
+        \t phiDDN: CL acceleration measurement noise \n
         
         Returns:
         -------
@@ -25,6 +30,13 @@ class Dynamics():
         self.Gamma = np.diag(gamma)
         self.kCL = kCL
 
+        # noise
+        self.addNoise=addNoise
+        self.tauN=tauN
+        self.phiN=phiN
+        self.phiDN=phiDN
+        self.phiDDN=phiDDN
+
         # rigid body parameters
         self.m = 1.0 # moment of inertia in kg m^2
         self.c = 0.5 # damper coefficient in kg m^2/s
@@ -33,9 +45,11 @@ class Dynamics():
         # unknown parameters
         self.theta = self.getTheta(self.m,self.c,self.k) # initialize theta
         self.thetaH = self.getTheta(0.5*self.m,0.5*self.c,0.5*self.k) # initialize theta estimate to the lowerbounds
+        self.thetaHm = self.getTheta(0.5*self.m,0.5*self.c,0.5*self.k) # initialize theta estimate to the lowerbounds
         
         # concurrent learning
         self.concurrentLearning = ConcurrentLearning(lambdaCL,YYminDiff)
+        self.concurrentLearningm = ConcurrentLearning(lambdaCL,YYminDiff)
         self.tau = 0.0
 
         # desired trajectory parameters
@@ -46,8 +60,12 @@ class Dynamics():
 
         # initialize state
         self.phi,_,_ = self.getDesiredState(0.0) # set the initial angle to the initial desired angle
+        self.phim = self.phi
         self.phiD = 0.0 # initial angular velocity
+        self.phiDm = 0.0
         self.phiDD = 0.0 # initial angular acceleration
+        self.phiDDm = 0.0
+
 
 
     def getTheta(self,m,c,k):
@@ -100,12 +118,21 @@ class Dynamics():
         Returns:
         -------
         \t phi:    angles \n
+        \t phim:   measured angles \n
         \t phiD:   angular velocity \n
+        \t phiDm:  measured angular velocity \n
         \t phiDD:  angular acceleration \n
+        \t phiDDm:  measured angular acceleration \n
         \t thetaH: parameter estimate \n
-        \t thetaH: parameter
+        \t thetaHm: measured parameter estimate \n
+        \t theta: parameter
         """
-        return self.phi,self.phiD,self.phiDD,self.thetaH,self.theta
+
+        phim = self.phim+self.phiN*np.random.randn()
+        phiDm = self.phiDm+self.phiDN*np.random.randn()
+        phiDDm = self.phiDDm+self.phiDDN*np.random.randn()
+        
+        return self.phi,phim,self.phiD,phiDm,self.phiDD,phiDDm,self.thetaH,self.thetaHm,self.theta
 
     #returns the error state
     def getErrorState(self,t):
@@ -118,21 +145,32 @@ class Dynamics():
         Returns:
         -------
         \t e:          tracking error \n
+        \t em:          measured tracking error \n
         \t eD:         tracking error derivative \n
+        \t eDm:          measured tracking error derivative \n
         \t r:          filtered tracking error \n
-        \t thetaTilde: parameter estimate error
+        \t rm:          measured filtered tracking error \n
+        \t thetaTilde: parameter estimate error \n
+        \t thetaTildem: measured parameter estimate error \n
         """
+        
         # get the desired state
         phid,phiDd,_ = self.getDesiredState(t)
 
+        phi,phim,phiD,phiDm,_,_,thetaH,thetaHm,theta = self.getState(t)
+
         # get the tracking error
-        e = phid - self.phi
-        eD = phiDd - self.phiD
+        e = phid - phi
+        em = phid - phim
+        eD = phiDd - phiD
+        eDm = phiDd - phiDm
         r = eD + self.alpha*e
+        rm = eDm + self.alpha*em
 
         # calculate the parameter error
-        thetaTilde = self.theta-self.thetaH
-        return e,eD,r,thetaTilde
+        thetaTilde = theta-thetaH
+        thetaTildem = theta-thetaHm
+        return e,em,eD,eDm,r,rm,thetaTilde,thetaTildem
 
     def getCLstate(self):
         """
@@ -143,12 +181,18 @@ class Dynamics():
         Returns:
         -------
         \t YYsumMinEig: current minimum eigenvalue of sum of the Y^T*Y terms \n
+        \t YYsumMinEigm: measrured current minimum eigenvalue of sum of the Y^T*Y terms \n
         \t TCL: time of the minimum eigenvalue found \n
+        \t TCLm: measured time of the minimum eigenvalue found \n
         \t YYsum: Y^T*Y sum \n
+        \t YYsumm: Ym^T*Ym sum \n
         \t YtauSum: Y^T*tau sum \n
+        \t YtauSumm: Ym^T*taum sum \n
 
         """
-        return self.concurrentLearning.getState()
+        YYsumMinEig,TCL,YYsum,YtauSum = self.concurrentLearning.getState()
+        YYsumMinEigm,TCLm,YYsumm,YtauSumm = self.concurrentLearningm.getState()
+        return YYsumMinEig,YYsumMinEigm,TCL,TCLm,YYsum,YYsumm,YtauSum,YtauSumm
 
     # returns the input and update law
     def getTauThetaHD(self,t):
@@ -161,34 +205,54 @@ class Dynamics():
         Returns:
         -------
         \t tau:     control input \n
+        \t taum:     measured control input \n
         \t thetaHD: parameter estimate adaptive update law \n
+        \t thetaHDm: measrued parameter estimate adaptive update law \n
         \t tauff:   input from the feedforward portion of control \n
+        \t tauffm:  measured input from the feedforward portion of control \n
         \t taufb:   input from the feedback portion of control \n
+        \t taufbm:  measured input from the feedback portion of control \n
         \t thetaCL: approximate of theta from CL \n
+        \t thetaCLm: measured approximate of theta from CL \n
         """
         # get the desired state
         _,_,phiDDd = self.getDesiredState(t)
 
+        # get the state
+        phi,phim,phiD,phiDm,_,_,thetaH,thetaHm,_ = self.getState(t)
+
         # get the error
-        e,eD,r,_ = self.getErrorState(t)
+        e,em,eD,eDm,r,rm,_,_ = self.getErrorState(t)
 
         # get the regressors
-        Y = np.array([phiDDd+self.alpha*eD,self.phiD,self.phi],dtype=np.float32)
+        Y = np.array([phiDDd+self.alpha*eD,phiD,phi],dtype=np.float32)
+        Ym = np.array([phiDDd+self.alpha*eDm,phiDm,phim],dtype=np.float32)
 
         #calculate the controller and update law
-        print("Y \n"+str(Y))
-        print("thetaH \n"+str(self.thetaH))
         tauff = Y@self.thetaH
         taufb = e+self.beta*r
         tau = tauff + taufb
+
+        tauffm = Ym@self.thetaHm
+        taufbm = em+self.beta*rm
+        taum = tauffm + taufbm
+
         #update the CL stack and the update law
         YYsumMinEig,_,YYsum,YtauSum = self.concurrentLearning.getState()
+        YYsumMinEigm,_,YYsumm,YtauSumm = self.concurrentLearningm.getState()
         thetaCL = np.zeros_like(self.theta,np.float32)
+        thetaCLm = np.zeros_like(self.theta,np.float32)
         if YYsumMinEig > 0.001:
             thetaCL = np.linalg.inv(YYsum)@YtauSum
             # print("thetaCL "+str(thetaCL))
-        thetaHD = r*self.Gamma@Y.T + self.kCL*self.Gamma@(YtauSum - YYsum@self.thetaH)
-        return tau,thetaHD,tauff,taufb,thetaCL
+
+        if YYsumMinEigm > 0.001:
+            thetaCLm = np.linalg.inv(YYsumm)@YtauSumm
+            # print("thetaCL "+str(thetaCL))
+
+        thetaHD = r*self.Gamma@Y.T + self.kCL*self.Gamma@(YtauSum - YYsum@thetaH)
+        thetaHDm = rm*self.Gamma@Ym.T + self.kCL*self.Gamma@(YtauSumm - YYsumm@thetaHm)
+        return tau,taum,thetaHD,thetaHDm,tauff,tauffm,taufb,taufbm,thetaCL,thetaCLm
 
     # take a step of the dynamics
     def step(self,dt,t):
@@ -202,20 +266,32 @@ class Dynamics():
         Returns:
         -------
         """
+
         # get the input and update law
-        tau,thetaHD,_,_,_ = self.getTauThetaHD(t)
+        tau,taum,thetaHD,thetaHDm,_,_,_,_,_,_ = self.getTauThetaHD(t)
+
+        #get the state
+        phi,_,phiD,_,_,_,_,_,_ = self.getState(t)
 
         # calculate the dynamics using the input
-        self.phiDD = (1.0/self.m)*(-self.c*self.phiD-self.k*self.phi+tau)
+        self.phiDD = (1.0/self.m)*(-self.c*phiD-self.k*phi+tau)
+        self.phiDDm = (1.0/self.m)*(-self.c*phiD-self.k*phi+taum)
 
         # update the internal state
         # X(ii+1) = X(ii) + dt*f(X)
         self.phi += dt*self.phiD
+        self.phim += dt*self.phiDm
         self.phiD += dt*self.phiDD
+        self.phiDm += dt*self.phiDDm
         self.thetaH += dt*thetaHD
+        self.thetaHm += dt*thetaHDm
+
+        #get the new state fpr learning
+        phi,phim,phiD,phiDm,phiDD,phiDDm,_,_,_ = self.getState(t)
 
         # update the concurrent learning
         # get the inertia regressor for CL
-        YCL = np.array([self.phiDD,self.phiD,self.phi],dtype=np.float32)
+        YCL = np.array([phiDD,phiD,phi],dtype=np.float32)
+        YCLm = np.array([phiDDm,phiDm,phim],dtype=np.float32)
         self.concurrentLearning.append(YCL,tau,t+dt)
-        
+        self.concurrentLearningm.append(YCLm,tau,t+dt)
