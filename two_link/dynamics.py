@@ -3,6 +3,8 @@ from math import sin
 from math import cos
 from integral_concurrent_learning import ConcurrentLearning
 
+np.random.seed(0)
+
 # class for the two link dynamics
 class Dynamics():
     # constructor to initialize a Dynamics object
@@ -47,9 +49,24 @@ class Dynamics():
         self.bphid = np.array([np.pi/2,np.pi/4],dtype=np.float32) # bias in rad
 
         # initialize state
+        self.maxDiff = 10**(-4)
         self.phi,_,_ = self.getDesiredState(0.0) # set the initial angle to the initial desired angle
         self.phiD = np.zeros(2,dtype=np.float32) # initial angular velocity
         self.phiDD = np.zeros(2,dtype=np.float32) # initial angular acceleration
+
+        #butcher table for ode45 from https://en.wikipedia.org/wiki/Dormand%E2%80%93Prince_method
+        #implement from https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods#Explicit_Runge.E2.80.93Kutta_methods
+        #c is the time weights, b is the out weights, balt is the alternative out weights, and a is the table weights
+        self.BTc = np.array([0,1/5,3/10,4/5,8/9,1,1])
+        self.BTb = np.array([35/384,0,500/1113,125/192,-2187/6784,11/84,0])
+        self.BTbalt = np.array([5179/57600,0,7571/16695,393/640,-92097/339200,187/2100,1/40])
+        self.BTa = np.zeros((7,6),dtype=np.float32)
+        self.BTa[1,0] = 1/5
+        self.BTa[2,0:2] = [3/40,9/40]
+        self.BTa[3,0:3] = [44/45,-56/15,32/9]
+        self.BTa[4,0:4] = [19372/6561,-25360/2187,64448/6561,-212/729]
+        self.BTa[5,0:5] = [9017/3168,-355/33,46732/5247,49/176,-5103/18656]
+        self.BTa[6,0:6] = [35/384,0,500/1113,125/192,-2187/6784,11/84]
 
 
     def getTheta(self,m,l):
@@ -355,6 +372,188 @@ class Dynamics():
         thetaHD = self.Gamma@Y.T@r + self.kCL*self.Gamma@(YtauSum - YYsum@self.thetaH)
         return tau,thetaHD,tauff,taufb,thetaCL
 
+    def getf(self,t,X):
+        """
+        Dynamics callback \n
+        Inputs:
+        -------
+        \t t:  time \n
+        \t X:  stacked phi,phiD,thetaH \n
+        
+        Returns:
+        -------
+        \t XD: derivative approximate at time \n
+        \t tau: control input at time \n
+        """
+
+        phi = X[0:2]
+        phiD = X[2:4]
+        thetaH = X[4:9]
+
+        # get the desired state
+        phid,phiDd,phiDDd = self.getDesiredState(t)
+
+        # get the errors
+        e = phid - phi
+        eD = phiDd - phiD
+        r = eD + self.alpha@e
+
+        # get the regressors
+        vphi = phiDDd + self.alpha@eD
+        YM = self.getYM(vphi,phi)
+        YC = self.getYC(phi,phiD)
+        YG = self.getYG(phi)
+        YMD = self.getYMD(phi,phiD,r)
+        Y = YM+YC+YG+0.5*YMD
+
+        #calculate the controller and update law
+        tauff = Y@thetaH
+        taufb = e+self.beta@r
+        tau = tauff + taufb
+
+        # get the dynamics
+        M = self.getM(self.m,self.l,phi)
+        C = self.getC(self.m,self.l,phi,phiD)
+        G = self.getG(self.m,self.l,phi)
+        phiDD = np.linalg.inv(M)@(-C-G+tau)
+
+        # get the update law
+        _,_,YYsum,YtauSum = self.concurrentLearning.getState()
+        thetaHD = self.Gamma@Y.T@r + self.kCL*self.Gamma@(YtauSum - YYsum@thetaH)
+
+        #calculate and return the derivative
+        XD = np.zeros_like(X)
+        XD[0:2] = phiD
+        XD[2:4] = phiDD
+        XD[4:9] = thetaHD
+
+        return XD,tau
+
+    #classic rk1 method aka Euler
+    def rk1(self,dt,t,X):
+        """
+        Classic rk1 method aka Euler \n
+        Inputs:
+        -------
+        \t dt:  total time step for interval \n
+        \t t:  time \n
+        \t X:  stacked phi,phiD,thetaH \n
+        
+        Returns:
+        -------
+        \t XD: derivative approximate over total interval \n
+        \t tau: control input approximate over total interval \n
+        \t Xh: integrated value \n
+        """
+        XD,tau = self.getf(t,X)
+        Xh = X + dt*XD
+
+        M = self.getM(self.m,self.l,Xh[0:2])
+        C = self.getC(self.m,self.l,Xh[0:2],Xh[2:4])
+        G = self.getG(self.m,self.l,Xh[0:2])
+        tau = M@XD[2:4]+C+G
+
+        return XD,tau,Xh
+
+    #classic rk4 method
+    def rk4(self,dt,t,X):
+        """
+        Classic rk4 method \n
+        Inputs:
+        -------
+        \t dt:  total time step for interval \n
+        \t t:  time \n
+        \t X:  stacked phi,phiD,thetaH \n
+        
+        Returns:
+        -------
+        \t XD: derivative approximate over total interval \n
+        \t tau: control input approximate over total interval \n
+        \t Xh: integrated value \n
+        """
+
+        k1,tau1 = self.getf(t,X)
+        k2,tau2 = self.getf(t+0.5*dt,X+0.5*dt*k1)
+        k3,tau3 = self.getf(t+0.5*dt,X+0.5*dt*k2)
+        k4,tau4 = self.getf(t+dt,X+dt*k3)
+        XD = (1.0/6.0)*(k1+2.0*k2+2.0*k3+k4)
+        # tau = (1.0/6.0)*(tau1+2.0*tau2+2.0*tau3+tau4)
+        Xh = X+dt*XD
+
+        M = self.getM(self.m,self.l,Xh[0:2])
+        C = self.getC(self.m,self.l,Xh[0:2],Xh[2:4])
+        G = self.getG(self.m,self.l,Xh[0:2])
+        tau = M@XD[2:4]+C+G
+
+        return XD,tau,Xh
+
+    #adaptive step using classic Dormand Prince method aka rk45 or ode45 method
+    def rk45(self,dt,t,X):
+        """
+        Adaptive step using classic Dormand Prince method aka ode45 method \n
+        Inputs:
+        -------
+        \t dt:  total time step for interval \n
+        \t t:  time \n
+        \t X:  stacked phi,phiD,thetaH \n
+        
+        Returns:
+        -------
+        \t XD: derivative approximate over total interval \n
+        \t tau: control input approximate over total interval \n
+        \t Xh: integrated value \n
+        """
+
+        #initially time step is equal to full dt
+        steps = 1
+        XDdiff = 100.0
+        XD = np.zeros(9,dtype=np.float32)
+        Xh = X.copy()
+        while XDdiff >= self.maxDiff:
+            Xh = X.copy()
+            th = t
+            h = dt/steps
+            for ii in range(steps):
+                #calculate the ks and taus
+                ks = np.zeros((7,9),np.float32)
+                ks[0,:],_ = self.getf(th,Xh)
+                ks[1,:],_ = self.getf(th+self.BTc[1]*h,Xh+h*(self.BTa[1,0]*ks[0,:]))
+                ks[2,:],_ = self.getf(th+self.BTc[2]*h,Xh+h*(self.BTa[2,0]*ks[0,:]+self.BTa[2,1]*ks[1,:]))
+                ks[3,:],_ = self.getf(th+self.BTc[3]*h,Xh+h*(self.BTa[3,0]*ks[0,:]+self.BTa[3,1]*ks[1,:]+self.BTa[3,2]*ks[2,:]))
+                ks[4,:],_ = self.getf(th+self.BTc[4]*h,Xh+h*(self.BTa[4,0]*ks[0,:]+self.BTa[4,1]*ks[1,:]+self.BTa[4,2]*ks[2,:]+self.BTa[4,3]*ks[3,:]))
+                ks[5,:],_ = self.getf(th+self.BTc[5]*h,Xh+h*(self.BTa[5,0]*ks[0,:]+self.BTa[5,1]*ks[1,:]+self.BTa[5,2]*ks[2,:]+self.BTa[5,3]*ks[3,:]+self.BTa[5,4]*ks[4,:]))
+                ks[6,:],_ = self.getf(th+self.BTc[6]*h,Xh+h*(self.BTa[6,0]*ks[0,:]+self.BTa[6,1]*ks[1,:]+self.BTa[6,2]*ks[2,:]+self.BTa[6,3]*ks[3,:]+self.BTa[6,4]*ks[4,:]+self.BTa[6,5]*ks[5,:]))
+                
+                #calculate the complete derivate, alternative derivative, and input
+                XDh = np.zeros(9,dtype=np.float32)
+                XDalth = np.zeros(9,dtype=np.float32)
+                for ii in range(7):
+                    XDh += self.BTb[ii]*ks[ii,:]
+                    XDalth += self.BTbalt[ii]*ks[ii,:]
+                            
+                th += h
+                Xh += h*XDh
+
+                # update the difference 
+                XDdiff = np.linalg.norm(XDh-XDalth)
+                if XDdiff >= self.maxDiff:
+                    print("h ",str(h))
+                    print("th ",str(th))
+                    print("XD diff ",str(XDdiff))
+                    phiDdiff = np.linalg.norm(XDh[0:2]-Xh[2:4])
+                    print("phiD diff ",str(phiDdiff))
+                    steps += 1
+                    break
+            if XDdiff < self.maxDiff:
+                XD = (1.0/dt)*(Xh-X)
+
+        M = self.getM(self.m,self.l,Xh[0:2])
+        C = self.getC(self.m,self.l,Xh[0:2],Xh[2:4])
+        G = self.getG(self.m,self.l,Xh[0:2])
+        tau = M@XD[2:4]+C+G
+
+        return XD,tau,Xh
+
     # take a step of the dynamics
     def step(self,dt,t):
         """
@@ -367,22 +566,20 @@ class Dynamics():
         Returns:
         -------
         """
-        # get the dynamics
-        M = self.getM(self.m,self.l,self.phi)
-        C = self.getC(self.m,self.l,self.phi,self.phiD)
-        G = self.getG(self.m,self.l,self.phi)
-
-        # get the input and update law
-        tau,thetaHD,_,_,_ = self.getTauThetaHD(t)
-
-        # calculate the dynamics using the input
-        self.phiDD = np.linalg.inv(M)@(-C-G+tau)
-
+        
         # update the internal state
-        # X(ii+1) = X(ii) + dt*f(X)
-        self.phi += dt*self.phiD
-        self.phiD += dt*self.phiDD
-        self.thetaH += dt*thetaHD
+        X = np.zeros(9,dtype=np.float32)
+        X[0:2] = self.phi
+        X[2:4] = self.phiD
+        X[4:9] = self.thetaH
+
+        #get the derivative and input from rk
+        XD,tau,Xh = self.rk4(dt,t,X)
+
+        self.phi = Xh[0:2]
+        self.phiD = Xh[2:4]
+        self.thetaH = Xh[4:9]
+        self.phiDD = XD[2:4]
 
         # update the concurrent learning
         # get the inertia regressor for CL

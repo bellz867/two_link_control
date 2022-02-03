@@ -62,8 +62,6 @@ class ConcurrentLearning():
                         self.TCL = t
                         self.lambdaCLMet = True
 
-        
-
     def getState(self):
         """
         Returns select parameters CL \n

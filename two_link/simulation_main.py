@@ -11,10 +11,10 @@ from matplotlib import rc
 
 
 if __name__ == '__main__':
-    dt = 0.005 # time step
-    tf = 60.0 # final time
+    dt = 0.1 # time step
+    tf = 10.0 # final time
     t = np.linspace(0.0,tf,int(tf/dt),dtype=np.float32) # times
-    alpha = 5.0*np.ones(2,dtype=np.float32)
+    alpha = 10.0*np.ones(2,dtype=np.float32)
     beta = 2.5*np.ones(2,dtype=np.float32)
     gamma = 1.25*np.ones(5,dtype=np.float32)
     lambdaCL = 1.0
