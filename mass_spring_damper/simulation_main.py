@@ -70,7 +70,7 @@ if __name__ == '__main__':
         # get the state and input data
         phij,phimj,phiDj,phiDmj,phiDDj,phiDDmj,thetaHj,thetaHmj,thetaj = dyn.getState(t[jj])
         phidj,phiDdj,phiDDdj = dyn.getDesiredState(t[jj])
-        ej,emj,_,_,rj,rmj,thetaTildej,thetaTildemj = dyn.getErrorState(t[jj])
+        ej,emj,_,_,rj,rmj,thetaTildej,thetaTildemj,_,_ = dyn.getErrorState(t[jj])
         tauj,taumj,_,_,tauffj,tauffmj,taufbj,taufbmj,thetaCLj,thetaCLmj = dyn.getTauThetaHD(t[jj])
         lamdaCLMinj,lamdaCLMinmj,TCLj,TCLmj,_,_,_,_ = dyn.getCLstate()
 

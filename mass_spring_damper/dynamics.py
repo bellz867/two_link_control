@@ -172,7 +172,7 @@ class Dynamics():
         # calculate the parameter error
         thetaTilde = theta-thetaH
         thetaTildem = theta-thetaHm
-        return e,em,eD,eDm,r,rm,thetaTilde,thetaTildem
+        return e,em,eD,eDm,r,rm,thetaTilde,thetaTildem,phim,phiDm
 
     def getCLstate(self):
         """
@@ -221,10 +221,10 @@ class Dynamics():
         _,_,phiDDd = self.getDesiredState(t)
 
         # get the state
-        phi,phim,phiD,phiDm,_,_,thetaH,thetaHm,_ = self.getState(t)
+        phi,_,phiD,_,_,_,thetaH,thetaHm,_ = self.getState(t)
 
         # get the error
-        e,em,eD,eDm,r,rm,_,_ = self.getErrorState(t)
+        e,em,eD,eDm,r,rm,_,_,phim,phiDm = self.getErrorState(t)
 
         # get the regressors
         Y = np.array([phiDDd+self.alpha*eD,phiD,phi],dtype=np.float32)
@@ -287,6 +287,7 @@ class Dynamics():
 
         #get the new state fpr learning
         phi,phim,phiD,phiDm,phiDD,phiDDm,_,_,_ = self.getState(t)
+        taum = self.m*phiDDm+self.c*phiDm+self.k*phim-self.tauN*np.random.randn()
 
         # update the concurrent learning
         # get the inertia regressor for CL
