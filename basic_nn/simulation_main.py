@@ -20,7 +20,7 @@ if __name__ == '__main__':
     t = np.linspace(0.0,tf,int(tf/dt),dtype=np.float64) # times
     betae = 1.0
     betaeps = 0.1
-    gamma = 1.0
+    gamma = 0.05
     lambdaCL = 0.1
     YYminDiff = 0.2
     deltaT = 1.0
@@ -122,7 +122,7 @@ if __name__ == '__main__':
 
     #plot the parameter estiamtes
     WHplot,WHax = plot.subplots()
-    for ii in range(2*L):
+    for ii in range(2*L+1):
         WHax.plot(t,WHHist[ii,:],color=np.random.rand(3),linewidth=2,linestyle='-')
     WHax.set_xlabel("$t$ $(sec)$")
     WHax.set_ylabel("$W_i$")
