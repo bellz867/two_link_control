@@ -15,7 +15,7 @@ class ConcurrentLearning():
         Returns:
         -------
         """
-        self.L = 2*L
+        self.L = 2*L+1
         self.Ybuff = [] # buffer for the Y terms to check min eig
         self.YYsum = np.zeros((self.L,self.L),dtype=np.float64) # sum of the Y^T*Y terms
         self.YtauSum = np.zeros(self.L,dtype=np.float64) # sum of the Y^T*tau terms

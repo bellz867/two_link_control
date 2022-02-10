@@ -20,7 +20,7 @@ class ConcurrentLearning():
         Returns:
         -------
         """
-        self.L = 2*L
+        self.L = 2*L+1
         self.deltaT = deltaT # integration window size
         self.intBuff = [] # buffer for the terms to integrate over
         self.stackBuff = [] # buffer for the stack terms
@@ -101,20 +101,20 @@ class ConcurrentLearning():
                     YYsumTest = self.YYsum + YY
                     YYsumTestMinEig = np.min(eigvals(YYsumTest))
 
-                    Ystack = np.zeros((len(self.stackBuff),self.L),dtype=np.float64)
-                    YstackSum = np.zeros((self.L,self.L),dtype=np.float64)
-                    for ii in range(len(self.stackBuff)):
-                        # print(self.stackBuff[ii].Y)
-                        Ystack[ii,:] = self.stackBuff[ii].Y
-                        YYi = np.outer(self.stackBuff[ii].Y,self.stackBuff[ii].Y)
-                        YstackSum += YYi
+                    # Ystack = np.zeros((len(self.stackBuff),self.L),dtype=np.float64)
+                    # YstackSum = np.zeros((self.L,self.L),dtype=np.float64)
+                    # for ii in range(len(self.stackBuff)):
+                    #     # print(self.stackBuff[ii].Y)
+                    #     Ystack[ii,:] = self.stackBuff[ii].Y
+                    #     YYi = np.outer(self.stackBuff[ii].Y,self.stackBuff[ii].Y)
+                    #     YstackSum += YYi
 
-                    _,YSVstack,_ = np.linalg.svd(Ystack)
-                    YYstack = Ystack.T@Ystack
-                    print("svd(Ystack) \n"+str(np.min(YSVstack)))
+                    # _,YSVstack,_ = np.linalg.svd(Ystack)
+                    # YYstack = Ystack.T@Ystack
+                    # print("svd(Ystack) \n"+str(np.min(YSVstack)))
                     # print("eig(YYstack) \n"+str(eigvals(YYstack)))
                     # print("eig(YstackSum) \n"+str(eigvals(YstackSum)))
-                    print("eig(YYsum) \n"+str(np.min(eigvals(self.YYsum))))
+                    # print("eig(YYsum) \n"+str(np.min(eigvals(self.YYsum))))
 
                     # switch the new data with the old if it increased the min eigenvalue in the switch
                     if (YYsumTestMinEig > self.YYsumMinEig) and (minDiff > self.YYminDiff):

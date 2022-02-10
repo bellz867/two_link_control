@@ -27,9 +27,10 @@ class Dynamics():
         -------
         """
         # gains
+        self.L = L
         self.betae = betae
         self.betaeps = betaeps
-        self.Gamma = np.diag(gamma*np.ones(2*L))
+        self.Gamma = np.diag(gamma*np.ones(2*self.L+1))
         self.kCL = kCL
         self.useCL = useCL
 
@@ -44,10 +45,9 @@ class Dynamics():
         self.c = 0.25
 
         # unknown parameters
-        self.L = L
-        self.WH = randn(2*self.L) # initialize weights randomly
-        # fp = 1.9*self.b/(2.0*np.pi)
-        Pb = 1.2*4.0*np.pi
+        self.WH = randn(2*self.L+1) # initialize weights randomly
+        fp = self.b/(2.0*np.pi)
+        Pb = 1.5/fp
         self.bHs = np.zeros(self.L,dtype=np.float64)
         for ii in range(self.L):
             self.bHs[ii] = (2.0*np.pi/Pb)*(ii+1)
@@ -101,7 +101,7 @@ class Dynamics():
         -------
         \t sigma: basis \n
         """
-        sigma = np.zeros(2*self.L)
+        sigma = np.ones(2*self.L+1)
         for ii in range(self.L):
             sIdx = 2*ii
             cIdx = 2*ii+1
@@ -216,6 +216,9 @@ class Dynamics():
             #     print("WCL agree \n"+str(xDm - u - WCL@sigmam))
         return u,WHD,uff,ufb
 
+    def getfunc(self,x):
+        return self.a*sin(self.b*x+self.c)*cos(self.c*x)
+
     def getfuncComp(self,x,WH):
         """
         Dynamics callback for function approx compare \n
@@ -234,7 +237,7 @@ class Dynamics():
         sigmam = self.getsigma(x)
 
         #calculate the actual
-        f = self.a*sin(self.b*x+self.c)
+        f = self.getfunc(x)
 
         #calculate the approximate
         fH = WH@sigmam
@@ -274,7 +277,7 @@ class Dynamics():
         u = uff + ufb
 
         # calculate the dynamics using the input
-        xD = self.a*sin(self.b*self.x+self.c) + u + self.uN
+        xD = self.getfunc(self.x) + u + self.uN
 
         #update the CL stack and the update law
         _,_,YYsum,YuSum = self.concurrentLearning.getState()
@@ -330,7 +333,7 @@ class Dynamics():
         """
 
         # update the internal state
-        X = np.zeros(1+2*self.L,dtype=np.float64)
+        X = np.zeros(1+2*self.L+1,dtype=np.float64)
         X[0] = self.x
         X[1:] = self.WH
 
