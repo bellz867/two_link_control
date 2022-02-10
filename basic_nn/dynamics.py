@@ -30,7 +30,7 @@ class Dynamics():
         self.L = L
         self.betae = betae
         self.betaeps = betaeps
-        self.Gamma = np.diag(gamma*np.ones(2*self.L+1))
+        self.Gamma = np.diag(gamma*np.ones(self.L+1))
         self.kCL = kCL
         self.useCL = useCL
 
@@ -45,12 +45,7 @@ class Dynamics():
         self.c = 0.25
 
         # unknown parameters
-        self.WH = randn(2*self.L+1) # initialize weights randomly
-        fp = self.b/(2.0*np.pi)
-        Pb = 1.5/fp
-        self.bHs = np.zeros(self.L,dtype=np.float64)
-        for ii in range(self.L):
-            self.bHs[ii] = (2.0*np.pi/Pb)*(ii+1)
+        self.WH = np.zeros(self.L+1) # initialize weights
         
         # concurrent learning
         self.concurrentLearning = ConcurrentLearning(lambdaCL=lambdaCL,YYminDiff=YYminDiff,deltaT=deltaT,L=self.L)
@@ -101,13 +96,9 @@ class Dynamics():
         -------
         \t sigma: basis \n
         """
-        sigma = np.ones(2*self.L+1)
+        sigma = np.ones(self.L+1)
         for ii in range(self.L):
-            sIdx = 2*ii
-            cIdx = 2*ii+1
-            sigma[sIdx] = sin(self.bHs[ii]*x)
-            sigma[cIdx] = cos(self.bHs[ii]*x)
-        # print(self.bHs)
+            sigma[ii] = (1.0/np.math.factorial(ii))*x**ii
         return sigma
 
     # returns the state
@@ -333,7 +324,7 @@ class Dynamics():
         """
 
         # update the internal state
-        X = np.zeros(1+2*self.L+1,dtype=np.float64)
+        X = np.zeros(1+self.L+1,dtype=np.float64)
         X[0] = self.x
         X[1:] = self.WH
 

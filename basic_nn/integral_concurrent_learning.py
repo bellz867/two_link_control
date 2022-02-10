@@ -20,7 +20,7 @@ class ConcurrentLearning():
         Returns:
         -------
         """
-        self.L = 2*L+1
+        self.L = L+1
         self.deltaT = deltaT # integration window size
         self.intBuff = [] # buffer for the terms to integrate over
         self.stackBuff = [] # buffer for the stack terms
