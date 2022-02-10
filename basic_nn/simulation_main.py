@@ -20,18 +20,18 @@ if __name__ == '__main__':
     t = np.linspace(0.0,tf,int(tf/dt),dtype=np.float64) # times
     betae = 1.0
     betaeps = 0.1
-    gamma = 0.5
-    lambdaCL = 0.0001
-    YYminDiff = 0.1
-    deltaT = 1.5
-    kCL = 0.2
+    gamma = 1.0
+    lambdaCL = 0.1
+    YYminDiff = 0.2
+    deltaT = 1.0
+    kCL = 0.1
     L = 10
     dyn = dynamics.Dynamics(betae=betae,betaeps=betaeps,gamma=gamma,lambdaCL=lambdaCL,YYminDiff=YYminDiff,kCL=kCL,uN=uNoise,xN=xNoise,xDN=xDNoise,L=L,deltaT=deltaT,useCL=useCL)
     xHist = np.zeros(len(t),dtype=np.float64)
     xdHist = np.zeros(len(t),dtype=np.float64)
     eHist = np.zeros(len(t),dtype=np.float64)
     eNormHist = np.zeros(len(t),dtype=np.float64)
-    WHHist = np.zeros((L,len(t)),dtype=np.float64)
+    WHHist = np.zeros((2*L,len(t)),dtype=np.float64)
     lambdaCLMinHist = np.zeros(len(t),dtype=np.float64)
     uHist = np.zeros(len(t),dtype=np.float64)
     uffHist = np.zeros(len(t),dtype=np.float64)
@@ -122,7 +122,7 @@ if __name__ == '__main__':
 
     #plot the parameter estiamtes
     WHplot,WHax = plot.subplots()
-    for ii in range(L):
+    for ii in range(2*L):
         WHax.plot(t,WHHist[ii,:],color=np.random.rand(3),linewidth=2,linestyle='-')
     WHax.set_xlabel("$t$ $(sec)$")
     WHax.set_ylabel("$W_i$")

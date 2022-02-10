@@ -4,6 +4,7 @@ from numpy.linalg import eigvals
 from collections import namedtuple
 
 TrainData = namedtuple('TrainData',('Y','tau','t'))
+StackData = namedtuple('StackData',('Y','U'))
 
 # class for the two link dynamics
 class ConcurrentLearning():
@@ -19,12 +20,12 @@ class ConcurrentLearning():
         Returns:
         -------
         """
-        self.L = L
+        self.L = 2*L
         self.deltaT = deltaT # integration window size
         self.intBuff = [] # buffer for the terms to integrate over
-        self.Ybuff = [] # buffer for the Y terms to check min eig
-        self.YYsum = np.zeros((L,L),dtype=np.float64) # sum of the Y^T*Y terms
-        self.YtauSum = np.zeros(L,dtype=np.float64) # sum of the Y^T*tau terms
+        self.stackBuff = [] # buffer for the stack terms
+        self.YYsum = np.zeros((self.L,self.L),dtype=np.float64) # sum of the Y^T*Y terms
+        self.YtauSum = np.zeros(self.L,dtype=np.float64) # sum of the Y^T*tau terms
         self.YYsumMinEig = 0.0 # current minimum eigenvalue for the sum
         self.lambdaCL = lambdaCL  # desired minimum eigenvalue for the sum
         self.TCL = 0.0 # time the minimum eigenvalue is satisfied
@@ -70,22 +71,78 @@ class ConcurrentLearning():
                 return
 
             YSV = np.linalg.norm(Yint)
-            if (YSV > self.YYminDiff) and (np.linalg.norm(tauInt) > self.YYminDiff):
-                # check to make sure the data is different enough from the other data
-                # find the minimum difference
-                minDiff = 100.0
-                for Yi in self.Ybuff:
-                    YYdiffi = np.linalg.norm(Yi-Yint)
-                    if YYdiffi < minDiff:
-                        minDiff = YYdiffi
-                # print("Yint \n"+str(Yint))
+            if (YSV > self.YYminDiff) and (np.linalg.norm(tauInt) > self.YYminDiff) and (t > self.deltaT):
+                addData = False
+                YY = np.outer(Yint,Yint)
+
+                #save data until there is more data than size
+                # print(len(self.stackBuff))
+                if (len(self.stackBuff) > self.L):
+                    minDiff = 100.0
+                    for Yi,Ui in self.stackBuff:
+                        YYdiffi = np.linalg.norm(Yi-Yint)
+                        if YYdiffi < minDiff:
+                            minDiff = YYdiffi
+
+                    # if enough data begin only adding data if it satisfies a condition
+                    # go through and replace each value on the stack to find the worst switch
+                    # minEig = 10000.0
+                    # minIdx = 0
+                    # for ii in range(len(self.stackBuff)):
+                    #     YYi = np.outer(self.stackBuff[ii].Y,self.stackBuff[ii].Y)
+                    #     YYsumTest = self.YYsum + YY - YYi
+                    #     YYsumTestMinEig = np.min(eigvals(YYsumTest))
+
+                    #     if YYsumTestMinEig < minEig:
+                    #         minIdx = ii
+                    #         minEig = YYsumTestMinEig
+                    # print(minEig)
+                    # print(minIdx)
+                    YYsumTest = self.YYsum + YY
+                    YYsumTestMinEig = np.min(eigvals(YYsumTest))
+
+                    Ystack = np.zeros((len(self.stackBuff),self.L),dtype=np.float64)
+                    YstackSum = np.zeros((self.L,self.L),dtype=np.float64)
+                    for ii in range(len(self.stackBuff)):
+                        # print(self.stackBuff[ii].Y)
+                        Ystack[ii,:] = self.stackBuff[ii].Y
+                        YYi = np.outer(self.stackBuff[ii].Y,self.stackBuff[ii].Y)
+                        YstackSum += YYi
+
+                    _,YSVstack,_ = np.linalg.svd(Ystack)
+                    YYstack = Ystack.T@Ystack
+                    print("svd(Ystack) \n"+str(np.min(YSVstack)))
+                    # print("eig(YYstack) \n"+str(eigvals(YYstack)))
+                    # print("eig(YstackSum) \n"+str(eigvals(YstackSum)))
+                    print("eig(YYsum) \n"+str(np.min(eigvals(self.YYsum))))
+
+                    # switch the new data with the old if it increased the min eigenvalue in the switch
+                    if (YYsumTestMinEig > self.YYsumMinEig) and (minDiff > self.YYminDiff):
+                        # print("was bigger")
+                        # YYmin = np.outer(self.stackBuff[minIdx].Y,self.stackBuff[minIdx].Y)
+                        # YtauMin = self.stackBuff[minIdx].Y*self.stackBuff[minIdx].U
+                        # self.YYsum -= YYmin
+                        # self.YtauSum -= YtauMin
+                        # self.stackBuff.pop(minIdx)
+                        self.stackBuff.append(StackData(Yint,tauInt))
+                        addData = True
+                else:
+                    # if not enough data just save data if its different enough
+                    # self.stackBuff.append(StackData(Yint,tauInt))
+                    # addData = True
+                    minDiff = 100.0
+                    for Yi,Ui in self.stackBuff:
+                        YYdiffi = np.linalg.norm(Yi-Yint)
+                        if YYdiffi < minDiff:
+                            minDiff = YYdiffi
+                    if minDiff > self.YYminDiff:
+                        self.stackBuff.append(StackData(Yint,tauInt))
+                        addData = True
                 
-                # if the minimum difference is large enough add the data
-                if minDiff > self.YYminDiff:
-                    self.Ybuff.append(Yint)
-                    YY = np.outer(Yint,Yint)
+                # if add data then add the data
+                if addData:
                     # print("YY \n"+str(YY))
-                    Ytau = Yint.T*tauInt
+                    Ytau = Yint*tauInt
                     # print("Ytau \n"+str(Ytau))
                     self.YYsum += YY
                     # print("YYsum "+str(self.YYsum))
@@ -99,6 +156,7 @@ class ConcurrentLearning():
                         self.lambdaCLMet = True
 
             # print("Nj "+str(len(self.Ybuff)))
+            
 
     def getState(self):
         """

@@ -29,7 +29,7 @@ class Dynamics():
         # gains
         self.betae = betae
         self.betaeps = betaeps
-        self.Gamma = np.diag(gamma*np.ones(L))
+        self.Gamma = np.diag(gamma*np.ones(2*L))
         self.kCL = kCL
         self.useCL = useCL
 
@@ -45,12 +45,12 @@ class Dynamics():
 
         # unknown parameters
         self.L = L
-        self.WH = randn(self.L) # initialize theta estimate to the lowerbounds
-        # self.bHs = 0.1*self.b*np.ones(self.L)+(1.9-0.1)*self.b*rand(self.L)
-        # self.cHs = 0.1*self.c*np.ones(self.L)+(1.9-0.1)*self.c*rand(self.L)
-        self.bHs = np.linspace(0.1*self.b,1.9*self.b,self.L,dtype=np.float64)
-        self.cHs = np.linspace(0.1*self.c,1.9*self.c,self.L,dtype=np.float64)
-        
+        self.WH = randn(2*self.L) # initialize weights randomly
+        # fp = 1.9*self.b/(2.0*np.pi)
+        Pb = 1.2*4.0*np.pi
+        self.bHs = np.zeros(self.L,dtype=np.float64)
+        for ii in range(self.L):
+            self.bHs[ii] = (2.0*np.pi/Pb)*(ii+1)
         
         # concurrent learning
         self.concurrentLearning = ConcurrentLearning(lambdaCL=lambdaCL,YYminDiff=YYminDiff,deltaT=deltaT,L=self.L)
@@ -68,6 +68,7 @@ class Dynamics():
         self.xN = self.xNM*randn()
         self.xDN = self.xDNM*randn()
         self.uN = self.uNM*randn()
+        
 
     def getDesiredState(self,t):
         """
@@ -100,9 +101,13 @@ class Dynamics():
         -------
         \t sigma: basis \n
         """
-        sigma = np.zeros(self.L)
+        sigma = np.zeros(2*self.L)
         for ii in range(self.L):
-            sigma[ii] = sin(self.bHs[ii]*x+self.cHs[ii])
+            sIdx = 2*ii
+            cIdx = 2*ii+1
+            sigma[sIdx] = sin(self.bHs[ii]*x)
+            sigma[cIdx] = cos(self.bHs[ii]*x)
+        # print(self.bHs)
         return sigma
 
     # returns the state
@@ -325,7 +330,7 @@ class Dynamics():
         """
 
         # update the internal state
-        X = np.zeros(1+self.L,dtype=np.float64)
+        X = np.zeros(1+2*self.L,dtype=np.float64)
         X[0] = self.x
         X[1:] = self.WH
 
@@ -338,8 +343,6 @@ class Dynamics():
         xm = self.x + self.xN
         xDm = self.xD + self.xDN
         sigmam = self.getsigma(xm)
-
-        # print("model agree " + str(self.xD - um - self.WH@sigmam))
 
         # update the internal state
         # X(ii+1) = X(ii) + dt*f(X)
