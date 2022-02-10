@@ -98,7 +98,7 @@ class Dynamics():
         """
         sigma = np.ones(self.L+1)
         for ii in range(self.L):
-            sigma[ii] = (1.0/np.math.factorial(ii))*x**ii
+            sigma[ii] = (1.0/np.math.factorial(ii+1))*x**(ii+1)
         return sigma
 
     # returns the state
