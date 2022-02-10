@@ -25,7 +25,7 @@ if __name__ == '__main__':
     YYminDiff = 0.1
     deltaT = 1.5
     kCL = 0.2
-    L = 10
+    L = 4
     dyn = dynamics.Dynamics(betae=betae,betaeps=betaeps,gamma=gamma,lambdaCL=lambdaCL,YYminDiff=YYminDiff,kCL=kCL,uN=uNoise,xN=xNoise,xDN=xDNoise,L=L,deltaT=deltaT,useCL=useCL)
     xHist = np.zeros(len(t),dtype=np.float64)
     xdHist = np.zeros(len(t),dtype=np.float64)

@@ -211,6 +211,9 @@ class Dynamics():
             #     print("WCL agree \n"+str(xDm - u - WCL@sigmam))
         return u,WHD,uff,ufb
 
+    def getfunc(self,x):
+        return self.a*sin(self.b*x+self.c)*cos(self.c*x)
+
     def getfuncComp(self,x,WH):
         """
         Dynamics callback for function approx compare \n
@@ -229,7 +232,7 @@ class Dynamics():
         sigmam = self.getsigma(x)
 
         #calculate the actual
-        f = self.a*sin(self.b*x+self.c)
+        f = self.getfunc(x)
 
         #calculate the approximate
         fH = WH@sigmam
@@ -269,7 +272,7 @@ class Dynamics():
         u = uff + ufb
 
         # calculate the dynamics using the input
-        xD = self.a*sin(self.b*self.x+self.c) + u + self.uN
+        xD = self.getfunc(self.x) + u + self.uN
 
         #update the CL stack and the update law
         _,_,YYsum,YuSum = self.concurrentLearning.getState()
