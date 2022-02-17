@@ -16,7 +16,7 @@ if __name__ == '__main__':
     xDNoise = 0.1
     useCL = True
     dt = 0.01 # time step
-    tf = 60.0 # final time
+    tf = 5.0 # final time
     t = np.linspace(0.0,tf,int(tf/dt),dtype=np.float64) # times
     betae = 1.0
     betaeps = 0.1
@@ -25,7 +25,7 @@ if __name__ == '__main__':
     YYminDiff = 0.1
     deltaT = 1.5
     kCL = 0.2
-    L = 4
+    L = 5
     dyn = dynamics.Dynamics(betae=betae,betaeps=betaeps,gamma=gamma,lambdaCL=lambdaCL,YYminDiff=YYminDiff,kCL=kCL,uN=uNoise,xN=xNoise,xDN=xDNoise,L=L,deltaT=deltaT,useCL=useCL)
     xHist = np.zeros(len(t),dtype=np.float64)
     xdHist = np.zeros(len(t),dtype=np.float64)
