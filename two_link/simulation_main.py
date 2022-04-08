@@ -24,8 +24,8 @@ if __name__ == '__main__':
     alpha = 3.0*np.identity(2)
     betar = 1.5*np.identity(2)
     betaeps = 0.001*np.identity(2)
-    gammath = 0.75
-    gammaw = 0.75
+    gammath = 0.1
+    gammaw = 0.1
     lambdaCL = 0.0001
     YYminDiff = 0.1
     deltaT = 1.5

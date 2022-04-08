@@ -20,11 +20,11 @@ if __name__ == '__main__':
     # phiDNoise = 0.001
     # phiDDNoise = 0.001
     useCL = False
-    useNN = False
+    useNN = True
     useYth = True
     useBias = True
     dt = 0.01 # time step
-    tf = 60.0 # final time
+    tf = 5.0 # final time
     t = np.linspace(0.0,tf,int(tf/dt),dtype=np.float64) # times
     alpha = 3.0*np.identity(2)
     betar = 1.5*np.identity(2)
@@ -36,7 +36,7 @@ if __name__ == '__main__':
     YYminDiff = 0.1
     deltaT = 1.5
     kCL = 0.2
-    l = 10
+    l = 20
     L = l+1
     dyn = dynamics.Dynamics(alpha=alpha,betar=betar,betadel=betadel,gammath=gammath,gammaw=gammaw,gammav=gammav,lambdaCL=lambdaCL,YYminDiff=YYminDiff,kCL=kCL,tauN=tauNoise,phiN=phiNoise,phiDN=phiDNoise,phiDDN=phiDDNoise,l=l,deltaT=deltaT,useCL=useCL,useNN=useNN,useYth=useYth,useBias=useBias)
     phiHist = np.zeros((2,len(t)),dtype=np.float64)

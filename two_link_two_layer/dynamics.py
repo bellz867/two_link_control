@@ -463,7 +463,10 @@ class Dynamics():
 
     def getTaud(self,phi,phiD):
         # return np.zeros(2)
-        return self.getG(0.5*self.m,2.0*self.l,phi)
+        taudFriction = np.array([5.0*np.tanh(5.0*phiD[0])*phiD[0]**2+5.0*phiD[0],5.0*np.tanh(5.0*phiD[1])*phiD[1]**2+5.0*phiD[1]])
+        taudSpring = np.array([5.0*phi[0]**3+5.0*phi[0],5.0*phi[1]**3+5.0*phi[1]])
+        taudForce = np.array([2.0*self.g*cos(phi[0])+self.g*cos(phi[0]+phi[1]),self.g*cos(phi[0]+phi[1])])
+        return taudFriction+taudSpring+taudForce
 
     def getfunc(self,phi,phiD,tau):
         M = self.getM(self.m,self.l,phi)
