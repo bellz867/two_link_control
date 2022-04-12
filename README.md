@@ -1,2 +1,2 @@
 # two_link_control
-Nonlinear adaptive controller for a two-link arm
+Adds concurrent learning to the basic adatpive controller.
